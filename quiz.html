@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Enhanced Random Quiz</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+  <!-- Custom CSS -->
+  <style>
+    body {
+      background-color: #f0f2f5;
+      font-family: 'Roboto', sans-serif;
+    }
+
+    .quiz-container {
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 30px;
+      background-color: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      animation: fadeIn 1s ease-in-out;
+    }
+
+    .option-btn {
+      text-align: left;
+      margin-bottom: 15px;
+      width: 100%;
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+
+    .option-btn:hover {
+      background-color: #e9ecef;
+    }
+
+    .disabled {
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .high-scores {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .timer {
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+
+    .progress-container {
+      margin-bottom: 20px;
+    }
+
+    /* Scrollbar Styling */
+    .high-scores::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .high-scores::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+
+    .high-scores::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 4px;
+    }
+
+    .high-scores::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container quiz-container">
+    <!-- Settings Section -->
+    <div id="settings">
+      <h2 class="mb-4 text-center">Welcome to the Random Quiz!</h2>
+      <div class="mb-3">
+        <label for="category" class="form-label">Select Category:</label>
+        <select id="category" class="form-select" aria-label="Quiz Category">
+          <option value="">Any Category</option>
+          <!-- Categories will be populated dynamically -->
+        </select>
+      </div>
+      <div class="mb-3">
+        <label for="difficulty" class="form-label">Select Difficulty:</label>
+        <select id="difficulty" class="form-select" aria-label="Quiz Difficulty">
+          <option value="">Any Difficulty</option>
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label for="quiz-type" class="form-label">Select Quiz Type:</label>
+        <select id="quiz-type" class="form-select" aria-label="Quiz Type">
+          <option value="multiple">Multiple Choice</option>
+          <option value="boolean">True/False</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label for="num-questions" class="form-label">Number of Questions:</label>
+        <select id="num-questions" class="form-select" aria-label="Number of Questions">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="15">15</option>
+          <option value="20">20</option>
+        </select>
+      </div>
+      <button id="start-btn" class="btn btn-primary w-100">Start Quiz</button>
+    </div>
+
+    <!-- Quiz Section -->
+    <div id="quiz" class="d-none">
+      <div class="progress-container">
+        <div class="progress">
+          <div id="progress-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0"
+            aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+        <div class="d-flex justify-content-between mt-2">
+          <div class="timer">Time Left: <span id="time">30</span>s</div>
+          <div>Question <span id="current-question">1</span> of <span id="total-questions">10</span></div>
+        </div>
+      </div>
+      <div id="question" class="mb-4"></div>
+      <div id="options" class="mb-4"></div>
+      <button id="next-btn" class="btn btn-success w-100 disabled">Next</button>
+    </div>
+
+    <!-- Result Section -->
+    <div id="result" class="d-none">
+      <h3 class="mb-4 text-center">Your Results</h3>
+      <p id="score" class="text-center"></p>
+      <div id="answers" class="mb-4"></div>
+      <div class="mb-4">
+        <h5>High Scores:</h5>
+        <ul id="high-scores-list" class="list-group high-scores"></ul>
+      </div>
+      <button id="restart-btn" class="btn btn-primary w-100">Restart Quiz</button>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS and dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- JavaScript -->
+  <script>
+    // DOM Elements
+    const settings = document.getElementById('settings');
+    const categorySelect = document.getElementById('category');
+    const difficultySelect = document.getElementById('difficulty');
+    const quizTypeSelect = document.getElementById('quiz-type');
+    const numQuestionsSelect = document.getElementById('num-questions');
+    const startBtn = document.getElementById('start-btn');
+    const quiz = document.getElementById('quiz');
+    const questionEl = document.getElementById('question');
+    const optionsEl = document.getElementById('options');
+    const nextBtn = document.getElementById('next-btn');
+    const progressBar = document.getElementById('progress-bar');
+    const currentQuestionEl = document.getElementById('current-question');
+    const totalQuestionsEl = document.getElementById('total-questions');
+    const timeEl = document.getElementById('time');
+    const resultContainer = document.getElementById('result');
+    const scoreEl = document.getElementById('score');
+    const answersEl = document.getElementById('answers');
+    const highScoresList = document.getElementById('high-scores-list');
+    const restartBtn = document.getElementById('restart-btn');
+
+    // Quiz State Variables
+    let currentQuestionIndex = 0;
+    let questions = [];
+    let userAnswers = [];
+    let timerInterval;
+    let timePerQuestion = 30; // seconds
+    let selectedQuizType = 'multiple'; // default
+    let selectedNumQuestions = 10; // default
+
+    // Fetch Categories from Open Trivia DB
+    async function fetchCategories() {
+      try {
+        const res = await fetch('https://opentdb.com/api_category.php');
+        const data = await res.json();
+        populateCategories(data.trivia_categories);
+      } catch (error) {
+        console.error('Failed to fetch categories:', error);
+        categorySelect.innerHTML = '<option value="">Any Category</option>';
+      }
+    }
+
+    // Populate Category Dropdown
+    function populateCategories(categories) {
+      categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.id;
+        option.textContent = category.name;
+        categorySelect.appendChild(option);
+      });
+    }
+
+    // Decode HTML Entities
+    function decodeHTML(html) {
+      const txt = document.createElement('textarea');
+      txt.innerHTML = html;
+      return txt.value;
+    }
+
+    // Shuffle Array Elements
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    // Start Quiz Button Click Handler
+    startBtn.addEventListener('click', () => {
+      const category = categorySelect.value;
+      const difficulty = difficultySelect.value;
+      selectedQuizType = quizTypeSelect.value;
+      selectedNumQuestions = parseInt(numQuestionsSelect.value);
+
+      let apiURL = `https://opentdb.com/api.php?amount=${selectedNumQuestions}&type=${selectedQuizType}`;
+      if (category) apiURL += `&category=${category}`;
+      if (difficulty) apiURL += `&difficulty=${difficulty}`;
+
+      fetchQuizQuestions(apiURL);
+      settings.classList.add('d-none');
+      quiz.classList.remove('d-none');
+    });
+
+    // Fetch Quiz Questions
+    async function fetchQuizQuestions(apiURL) {
+      try {
+        const res = await fetch(apiURL);
+        const data = await res.json();
+        if (data.response_code !== 0) {
+          throw new Error('No questions available for the selected options.');
+        }
+        questions = data.results.map(q => ({
+          type: q.type,
+          question: decodeHTML(q.question),
+          correct_answer: decodeHTML(q.correct_answer),
+          options: q.type === 'multiple' ? shuffle([...q.incorrect_answers.map(a => decodeHTML(a)), decodeHTML(q.correct_answer)]) : ['True', 'False']
+        }));
+        totalQuestionsEl.textContent = questions.length;
+        displayQuestion();
+        updateProgressBar();
+        updateTimer();
+      } catch (error) {
+        console.error('Failed to fetch quiz questions:', error);
+        questionEl.innerHTML = 'Failed to load quiz questions. Please try different settings.';
+        optionsEl.innerHTML = '';
+        nextBtn.disabled = true;
+      }
+    }
+
+    // Display Current Question
+    function displayQuestion() {
+      if (currentQuestionIndex >= questions.length) {
+        showResults();
+        return;
+      }
+      const current = questions[currentQuestionIndex];
+      questionEl.innerHTML = `<strong>Question ${currentQuestionIndex + 1}:</strong> ${current.question}`;
+      optionsEl.innerHTML = '';
+
+      // Handle different quiz types
+      if (current.type === 'multiple') {
+        current.options.forEach(option => {
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-outline-primary option-btn';
+          btn.innerHTML = option;
+          btn.setAttribute('aria-label', option);
+          btn.onclick = () => selectOption(option, btn);
+          optionsEl.appendChild(btn);
+        });
+      } else if (current.type === 'boolean') {
+        ['True', 'False'].forEach(option => {
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-outline-primary option-btn';
+          btn.innerHTML = option;
+          btn.setAttribute('aria-label', option);
+          btn.onclick = () => selectOption(option, btn);
+          optionsEl.appendChild(btn);
+        });
+      }
+
+      currentQuestionEl.textContent = currentQuestionIndex + 1;
+      nextBtn.classList.add('disabled');
+      clearInterval(timerInterval);
+      startTimer();
+    }
+
+    // Handle Option Selection
+    function selectOption(selected, btn) {
+      userAnswers[currentQuestionIndex] = selected;
+      const buttons = optionsEl.querySelectorAll('.option-btn');
+      buttons.forEach(button => {
+        button.classList.add('disabled');
+        if (button.textContent === questions[currentQuestionIndex].correct_answer) {
+          button.classList.remove('btn-outline-primary');
+          button.classList.add('btn-success');
+        }
+        if (button.textContent === selected && selected !== questions[currentQuestionIndex].correct_answer) {
+          button.classList.remove('btn-outline-primary');
+          button.classList.add('btn-danger');
+        }
+      });
+      nextBtn.classList.remove('disabled');
+      clearInterval(timerInterval);
+    }
+
+    // Next Button Click Handler
+    nextBtn.addEventListener('click', () => {
+      currentQuestionIndex++;
+      updateProgressBar();
+      displayQuestion();
+    });
+
+    // Update Progress Bar
+    function updateProgressBar() {
+      const progress = ((currentQuestionIndex) / questions.length) * 100;
+      progressBar.style.width = `${progress}%`;
+      progressBar.setAttribute('aria-valuenow', progress);
+    }
+
+    // Start Timer
+    function startTimer() {
+      let timeLeft = timePerQuestion;
+      timeEl.textContent = timeLeft;
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timeEl.textContent = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          userAnswers[currentQuestionIndex] = null; // No answer selected
+          markUnanswered();
+          nextBtn.classList.remove('disabled');
+        }
+      }, 1000);
+    }
+
+    // Update Timer Display (Optional: can be used for dynamic settings)
+    function updateTimer() {
+      // Currently fixed at 30 seconds per question
+      // Can be modified to allow dynamic time settings
+    }
+
+    // Mark Unanswered Question
+    function markUnanswered() {
+      const buttons = optionsEl.querySelectorAll('.option-btn');
+      buttons.forEach(button => {
+        button.classList.add('disabled');
+        if (button.textContent === questions[currentQuestionIndex].correct_answer) {
+          button.classList.remove('btn-outline-primary');
+          button.classList.add('btn-success');
+        }
+      });
+    }
+
+    // Show Results
+    function showResults() {
+      quiz.classList.add('d-none');
+      resultContainer.classList.remove('d-none');
+      clearInterval(timerInterval);
+      let score = 0;
+      let answersHTML = '';
+      questions.forEach((q, index) => {
+        const userAnswer = userAnswers[index];
+        const isCorrect = userAnswer === q.correct_answer;
+        if (isCorrect) score++;
+        answersHTML += `
+        <div class="mb-4">
+          <p><strong>Question ${index + 1}:</strong> ${q.question}</p>
+          <p>Your answer: 
+            <span class="${isCorrect ? 'text-success' : 'text-danger'}">${userAnswer || 'No answer selected'}</span>
+          </p>
+          ${!isCorrect ? `<p>Correct answer: <span class="text-success">${q.correct_answer}</span></p>` : ''}
+          <hr>
+        </div>
+      `;
+      });
+      scoreEl.innerText = `You scored ${score} out of ${questions.length}`;
+      answersEl.innerHTML = answersHTML;
+      saveHighScore(score, questions.length);
+      displayHighScores();
+    }
+
+    // Save High Score to localStorage
+    function saveHighScore(score, total) {
+      const highScores = JSON.parse(localStorage.getItem('highScores')) || [];
+      const newScore = {
+        score: score,
+        total: total,
+        date: new Date().toLocaleString(),
+        quizType: selectedQuizType,
+        category: categorySelect.options[categorySelect.selectedIndex].text,
+        difficulty: difficultySelect.value || 'Any',
+        numQuestions: selectedNumQuestions
+      };
+      highScores.push(newScore);
+      highScores.sort((a, b) => b.score - a.score); // Sort descending
+      localStorage.setItem('highScores', JSON.stringify(highScores.slice(0, 10))); // Keep top 10
+    }
+
+    // Display High Scores
+    function displayHighScores() {
+      const highScores = JSON.parse(localStorage.getItem('highScores')) || [];
+      highScoresList.innerHTML = '';
+      if (highScores.length === 0) {
+        highScoresList.innerHTML = '<li class="list-group-item">No high scores yet.</li>';
+        return;
+      }
+      highScores.forEach((entry, index) => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+        li.innerHTML = `
+        <span>
+          Score: ${entry.score}/${entry.total} | 
+          Type: ${entry.quizType === 'multiple' ? 'Multiple Choice' : 'True/False'} | 
+          Category: ${entry.category} | 
+          Difficulty: ${entry.difficulty} | 
+          Questions: ${entry.numQuestions}
+        </span>
+        <small>${entry.date}</small>
+      `;
+        highScoresList.appendChild(li);
+      });
+    }
+
+    // Restart Quiz Button Click Handler
+    restartBtn.addEventListener('click', () => {
+      currentQuestionIndex = 0;
+      questions = [];
+      userAnswers = [];
+      resultContainer.classList.add('d-none');
+      settings.classList.remove('d-none');
+      progressBar.style.width = '0%';
+      progressBar.setAttribute('aria-valuenow', 0);
+      highScoresList.innerHTML = '';
+    });
+
+    // Initialize Quiz on Page Load
+    window.onload = () => {
+      fetchCategories();
+      displayHighScores();
+    };
+  </script>
+</body>
+
+</html>
